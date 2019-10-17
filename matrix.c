@@ -3,18 +3,18 @@
 
 // N = 5000 and 3000 and 1500 programm works more then 4 minutes
 
-/*  N = 1000
-    if we work without threads
-      real 18,87   16,81   16,84
-      user 15,31   13,60   13,05
-      sys 0,20     0,20    0,20
+/*  N = 2000
+    if we work with 2 threads. Work faster than witn 1 thread
+      real 87,15
+      user 171,86
+      sys  0,20
 
-    if we work with threads
-      real 16,77   19,68   18,98
-      user 12,88   15,49   14,74
-      sys 0,70     0,75    0,68
+    if we work with 1 thread
+      real 133,57
+      user 133,04
+      sys  0,20
 
-      Why so differents results? I worked on virtual box
+      I can do normal function, that create specified nomber of thread, bu now... only 1 or 2
 */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -25,12 +25,15 @@
 #include <string.h>
 #include <pthread.h>
 
+//don't have to make more than 4 threads. Rewrite the programm
+
 typedef struct DataMatrix{
   int** a;
   int** b;
   int** c;
   int string;
   int size;
+  int count;
 }DataMatrix;
 
 int** CreateMatrix(const int* size){
@@ -72,18 +75,21 @@ void* mythread(void *dummy)
   int** c = gh->c;
   int string = gh->string;
   int N = gh->size;
+  int count = gh->count;
   //printf("SIZE %d\n", N);
   //printf("STRING %d\n", string);
   int sum = 0;
-  for(int j = 0; j < N; j++){
-    for(int k = 0; k < N; k++){
-      sum += (a[string][k]) * (b[k][j]);
+  for(int i = string; i < N; i = i+count){
+    for(int j = 0; j < N; j++){
+      for(int k = 0; k < N; k++){
+        sum += (a[i][k]) * (b[k][j]);
+      }
+      c[i][j] = sum;
+      sum = 0;
     }
-    c[string][j] = sum;
-    sum = 0;
+    //printf("ALL RIGHT %d\n", i);
   }
   //printf("JOKER\n");
-  gh->string++;
   return NULL;
 }
 
@@ -104,22 +110,26 @@ void DestructMatrix(const int* size, int** a){
 }
 
 int MatrixWithThread(DataMatrix* gh){
-  int N = gh->size;
   int result = 0;
-  for(int i = 0; i < N; i++){
-    pthread_t thid;
-    //printf("ISD %d\n", gh->string);
-    result = pthread_create( &thid, (pthread_attr_t *)NULL, mythread, gh);
-    if(result != 0){
-      printf ("Error on thread create, return value = %d\n", result);
-      return -1;
-    }
-    pthread_join(thid, (void **)NULL);
+  pthread_t thid1, thid2;
+  DataMatrix beta = *gh;
+  beta.string++;
+
+  if(gh->count == 2){
+    result = pthread_create( &thid1, (pthread_attr_t *)NULL, mythread, gh);
+  //printf("ISD %d\n", gh->string);
+  //gh->string++; Doesn't work, I don't know why
+    result = pthread_create( &thid2, (pthread_attr_t *)NULL, mythread, &beta);
+    pthread_join(thid1, (void **)NULL);
+    pthread_join(thid2, (void **)NULL);
+  }else if(gh->count == 1){
+    result = pthread_create( &thid1, (pthread_attr_t *)NULL, mythread, gh);
+    pthread_join(thid1, (void **)NULL);
   }
 }
 
 int main(int argc, char* argv[], char* envp[]){
-  int N = 1000;
+  int N = 5000;
   int result;
   char* n0 = "0";
   char* n1 = "1";
@@ -133,16 +143,10 @@ int main(int argc, char* argv[], char* envp[]){
   if(argc < 2){
     printf("Joker's trap\n");
     return -1;
-  }
-  if(strcmp(argv[1],n0) == 0){
-    DataMatrix gh = {a, b, c, 0, N};
-    MatrixWithThread(&gh);
-    PrintMatrix(&N, c);
-  }else if(strcmp(argv[1],n1) == 0){
-    c = MulMatrix(&N, a, b);
-    PrintMatrix(&N, c);
   }else{
-    printf("Joker's trap\n");
+    int kl = atoi(argv[1]);
+    DataMatrix gh = {a, b, c, 0, N, kl};
+    MatrixWithThread(&gh);
   }
 
   DestructMatrix(&N, a);
