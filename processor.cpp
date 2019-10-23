@@ -1,16 +1,22 @@
-//переписать на файлы и на две программы
-//добавить DUMP
-
-
+//зеализовать end
+//реализовать fork
+//добавить out in в asn
+//написать проверку проверки на дохуя проверок
 //канарейки на процессор
 #include <iostream>
+#include <fstream>
 #include <cstdint>
 #include <string>
 #include <cmath>
 #include <cassert>
 #include <cstddef>
+#include <exception>
+#include <stdexcept>
+#include <sstream>
 using namespace std;
+
 #define POISON -1;
+#define CANARY 86;
 //in & out & add, arifm, push & pop
 //jmp
 //out последнее запушенное число
@@ -40,8 +46,8 @@ public:
     capacity = gh;
     size = 0;
     array = (type*)calloc(capacity+2, sizeof(type));
-    array[0] = 86;
-    array[capacity+1] = 86;
+    array[0] = CANARY;
+    array[capacity+1] = CANARY;
     hash = 0;
     for(int i = 1; i < capacity; i++){
       array[i] = POISON;
@@ -60,47 +66,40 @@ public:
   void canary() const{
     if(!(array[0] == array[capacity+1])){
         cout << "Canaries are't equal" << endl;
-        Print();
+        Dump();
         exit(0);
     }
   } //переписать с DUMP
 
   void checkhash(){
-    size--;
     if (hash != Gethash()){
-      size++;
       Dump();
       exit(0);
     }
-    size++;
   }
 
   type out() const{
     return array[size];
   }
 
-  void Print() const{
-    cout << endl;
-    cout << "STACK:" << endl;
-    cout << array[0] << " = " << array[capacity+1] << endl;
-    cout << capacity << " is capacity of our STACK" << endl;
-    cout << size << " is size of our STACK" << endl;
-    cout << hash << " is hash of our STACK" << endl;
-    for(int i = 0; i < size; i++){
-      cout << array[i+1] << " is String " << i << endl;
-    }
-    cout << endl;
-  };
-
   void Dump() const{
     cout << endl;
     cout << "STACK:" << endl;
-    cout << array[0] << " = " << array[capacity+1] << endl;
-    cout << capacity << " is capacity of our STACK" << endl;
-    cout << size << " is size of our STACK" << endl;
-    cout << hash << " is hash of our STACK" << endl;
-    for(int i = 0; i < capacity; i++){
+    cout << "Canaries are " << array[0] << " and " << array[capacity+1] << " .";
+    if(array[0] == array[capacity+1]){
+      cout << "They're equal" << endl;
+    }else{
+      cout << "They're not equal" << endl;
+    }
+    cout << capacity << " is capacity of your STACK" << endl;
+    cout << size << " is size of your STACK" << endl;
+    cout << hash << " is hash of your STACK" << endl;
+    for(int i = 0; i < size; i++){
       cout << array[i+1] << " is String " << i << endl;
+    }
+    cout << "!!!!!!!!!! You're here !!!!!!!!!" << endl;
+    for(int i = size; i < capacity; i++){
+      cout << array[i+1] << " is String " << i << " number of POISON" << endl;
     }
     cout << endl;
   }
@@ -111,14 +110,14 @@ public:
     if(size == capacity){
       capacity = capacity*2;
       array = (type*)realloc(array, capacity * sizeof(type));
-      array[capacity+1] = array[0];
+      array[capacity+1] = CANARY;
       for(int i = size+2; i < capacity+1; i++){
         array[i] = POISON;
       }
     }
-    array[size+1] = data1;
-    hash = Gethash();
     size++;
+    array[size] = data1;
+    hash = Gethash();
   }
 
   type pop(){
@@ -167,7 +166,7 @@ public:
 
   void PrintReg() const{
     cout << endl;
-    cout << "REGISTER" << endl;
+    cout << "REGISTER:" << endl;
     cout << ax << " is ax register" << endl;
     cout << bx << " is bx register" << endl;
     cout << cx << " is cx register" << endl;
@@ -209,7 +208,7 @@ public:
   Intel(){}
 
   ~Intel(){
-    cout << "INTEL" << endl;
+    cout << endl << "INTEL:" << endl;
   }
 
   void push(const string& gh){
@@ -280,7 +279,7 @@ public:
   }
 
   void Print() const{
-    work.Print();
+    work.Dump();
     first.PrintReg();
   }
 private:
@@ -288,24 +287,28 @@ private:
   Register first;
 };
 
-void ReadCommand(char* command, const string* listof, const char* charof, const int& gh, const int& num){//переделать на считывание с файла и возврат int'a на количество команд
-  string buff;
-  char newCommand;
-  string qw[num];
-  for(int i = 0; i < num; i++){
-    cin >> buff;
-    qw[i] = buff;
-    for(int k = 0; k < gh; k++){
-      if(buff == listof[k]){
-        command[i] = charof[k];
-        break;
-      }
-    }
+int ReadCommand(char* command, char* argv){
+  assert(command != NULL);
+  assert(argv != NULL);
+  ifstream input(argv);
+  if(!input.is_open()){
+    stringstream ss;
+    ss << "Failed to open file with name" << argv;
+    throw invalid_argument(ss.str());
   }
+  char buff;
+  input >> buff;
+  int count = 0;
+  while(!input.eof()){
+    command[count] = buff;
+    input >> buff;
+    count++;
+  }
+  return count;
 }
 
 void Execute(const char* command, Intel& core, const int& num){
-  cout << "execute" << endl;
+  cout << "execute of " << num << " command" << endl;
   for(int i = 0; i < num; i++){
     switch (command[i]) {
       case 'A':{
@@ -375,24 +378,14 @@ void Execute(const char* command, Intel& core, const int& num){
   }
 }
 
-int main(){
-  /*string listof[] = {"push", "pop", "add", "sub", "div", "mul", "kv", "ax", "bx", "cx", "dx"};
-  char charof[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'};
-  char* command = (char*)calloc(100, sizeof(char));*/
-/*  ReadCommand(command, listof, charof, 11, num);
-  Execute(command, core, num);*/
+int main(int argc, char* argv[]){
   Intel gh;
-  gh.push(6);
-  gh.push(8);
-  gh.push(9);
-  gh.push(6);
-  gh.push(8);
-  gh.push(9);
-  gh.push(6);
-  gh.push(8);
-  gh.push(9);
-  gh.push(6);
-  gh.push(8);
-  gh.push(9);
+  char* command = (char*)calloc(100, sizeof(char));
+  int size = ReadCommand(command, argv[1]);//поменять на 2, если сделаю через форк
+/*  cout << size << endl;
+  for(int i = 0; i<size; i++){
+    cout << command[i] << endl;
+  }*/
+  Execute(command, gh, size);
   return 0;
 }
