@@ -6,6 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+void Check(int g; char* name){ 
+  if(g < 0){
+    printf("ERROR OF OPEN FIFO %s\n", name);
+    exit(-1);
+  }
+}
+
 int WriteFifo(char* buff, char* name){
   int fd = open(name, O_WRONLY);
   if(fd < 0){
@@ -57,20 +64,14 @@ int main(int argc, char* argv[], char* envp[]){
       memset(buff, 0, 100);
       while(1){
         int g = WriteFifo(buff, name1);
-        if(g < 0){
-          printf("ERROR OF OPEN FIFO %s\n", name1);
-          return -1;
-        }
+        Check(g, name1);
       }
     }else if(strcmp(argv[1],n1) == 0){
       char buff[100];
       memset(buff, 0, 100);
       while(1){
         int g = WriteFifo(buff, name2);
-        if(g < 0){
-          printf("ERROR OF OPEN FIFO %s\n", name2);
-          return -1;
-        }
+        Check(g, name1);
       }
     }
   }else{
@@ -79,20 +80,14 @@ int main(int argc, char* argv[], char* envp[]){
       memset(buff, 0, 100);
       while(1){
         int g = ReadFifo(buff, name2);
-        if(g < 0){
-          printf("ERROR OF OPEN FIFO %s\n", name2);
-          return -1;
-        }
+        Check(g, name1);
       }
     }else if(strcmp(argv[1],n1) == 0){
       char buff[100];
       memset(buff, 0, 100);
       while(1){
         int g = ReadFifo(buff, name1);
-        if(g < 0){
-          printf("ERROR OF OPEN FIFO %s\n", name1);
-          return -1;
-        }
+        Check(g, name1);
       }
     }
   }
