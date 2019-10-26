@@ -336,8 +336,8 @@ void Execute(const string& command, Intel& core, const int& num){
   for(int i = 0; i < num; i++){
     cout << command[i] << endl;
   }*/
+  //cout << command[18] << endl;
   for(int i = 0; i < num; i++){
-    //cout << i << " is number" << endl;
     switch (command[i]) {
       case 'A':
         i++;
@@ -418,15 +418,15 @@ void Execute(const string& command, Intel& core, const int& num){
         switch (command[i]) {
           case '>':{
             i++;
-            int gh = static_cast<int>(command[i])-32;
+            /*int gh = static_cast<int>(command[i])-32;
             cout << gh << " nAAAAAA" << endl;
             gh = core.Get("dx");
-            /*if(gh < 0){
+            if(gh < 0){
               cout << gh << " is register" << endl;
               exit(-1);
-            }*/
-            cout << gh << " is register" << endl;
-            if(!((core.Get("dx")) > (static_cast<int>(command[i])-32))){
+            }
+            cout << gh << " is register" << endl;*/
+            if(core.Get("dx") <= (static_cast<int>(command[i])-32)){
               //cout << "PIZDEC" << endl;
               i++;
             }else{
@@ -447,7 +447,7 @@ void Execute(const string& command, Intel& core, const int& num){
               exit(-1);
             }
             cout << gh << " is register" << endl;*/
-            if(!((core.Get("dx")) < (static_cast<int>(command[i])-32))){
+            if(core.Get("dx") >= (static_cast<int>(command[i])-32)){
               //cout << "PIZDEC" << endl;
               i++;
             }else{
@@ -485,6 +485,7 @@ void Execute(const string& command, Intel& core, const int& num){
         exit(0);
     }
   }
+  cout << command[18] << endl;
 }
 
 int main(int argc, char* argv[]){
