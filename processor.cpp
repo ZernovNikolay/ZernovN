@@ -1,8 +1,9 @@
-//зеализовать end
+//зеализовать end +
 //реализовать fork
-//добавить out in в asn
-//написать проверку проверки на дохуя проверок
+//добавить out in в asn +
+//написать проверку проверки на дохуя проверок +
 //канарейки на процессор
+//ifcall
 #include <iostream>
 #include <fstream>
 #include <cstdint>
@@ -31,7 +32,7 @@ using namespace std;
 //еще один стек для call и ret это еще одни jump
 typedef int type;
 
-class Stack{ //DUMP
+class Stack{
 public:
 
   Stack(){
@@ -41,8 +42,10 @@ public:
     array[0] = 86;
     array[capacity+1] = 86;
     hash = 0;
+    //cout << &size << " " << &capacity << " " << &hash << endl;
   };
   Stack(const int& gh){
+    assert(gh > 0);
     capacity = gh;
     size = 0;
     array = (type*)calloc(capacity+2, sizeof(type));
@@ -105,6 +108,7 @@ public:
   }
 
   void push(const type& data1){
+    assert(isfinite(data1));
     canary();
     checkhash();
     if(size == capacity){
@@ -139,12 +143,10 @@ public:
     return gh;
   }
 
-  size_t GetCap(){
+  size_t GetCapacity(){
     return capacity;
   }
 private:
-  type can1;
-  type can2;
   type* array;
   size_t size;
   size_t capacity;
@@ -174,6 +176,7 @@ public:
   }
 
   void Set(string gh, const type& num){
+    assert(isfinite(num));
      if(gh == "ax") {
        ax = num;
      }else if(gh == "bx"){
@@ -182,6 +185,10 @@ public:
        cx = num;
      }else if(gh == "dx"){
        dx = num;
+     }else{
+       stringstream ss;
+       ss << "Unknown register: " << gh << endl;
+       throw invalid_argument(ss.str());
      }
   }
 
@@ -194,6 +201,10 @@ public:
        return cx;
      }else if(gh == "dx"){
        return dx;
+     }else{
+       stringstream ss;
+       ss << "Unknown register: " << gh << endl;
+       throw invalid_argument(ss.str());
      }
   }
 private:
@@ -212,7 +223,11 @@ public:
   }
 
   void push(const string& gh){
-    work.push(first.Get(gh));
+    try{
+      work.push(first.Get(gh));
+    }catch(invalid_argument& inv){
+        throw inv;
+      }
   }
 
   void push(const type& gh){
@@ -220,19 +235,20 @@ public:
   }
 
   void pop(const string& gh){
-    if(gh == "ax"){
-        first.Set("ax", work.pop());
-    }else if(gh == "bx"){
-        first.Set("bx", work.pop());
-    }else if(gh == "cx"){
-        first.Set("cx", work.pop());
-    }else if(gh == "dx"){
-        first.Set("dx", work.pop());
+    try{
+      first.Set(gh, work.pop());
+    }catch(invalid_argument& inv){
+      throw inv;
     }
   }
 
   type Get(const string& gh) const{
-    return first.Get(gh);
+    try{
+      type num = first.Get(gh);
+      return num;
+    }catch(invalid_argument& inv){
+      throw inv;
+    }
   }
 
   void mul(){
@@ -271,7 +287,7 @@ public:
   }
 
   void out(){
-    cout << work.out() << endl;
+    cout << "Result is " << work.out() << endl;
   }
 
   void Gethash(){
@@ -279,16 +295,31 @@ public:
   }
 
   void Print() const{
-    work.Dump();
+    cout << endl << "INTEL:" << endl;
     first.PrintReg();
+    work.Dump();
+    call.Dump();
+  }
+
+  void pushCall(int gh){
+    call.push(gh);
+  }
+
+  type popCall(){
+    return call.pop();
+  }
+
+  void copy(const string& gh){
+    first.Set(gh, work.out());
   }
 private:
   Stack work;
+  Stack call;
   Register first;
 };
 
-int ReadCommand(char* command, char* argv){
-  assert(command != NULL);
+int ReadCommand(string& command, char* argv){
+  assert(&command != NULL);
   assert(argv != NULL);
   ifstream input(argv);
   if(!input.is_open()){
@@ -296,61 +327,51 @@ int ReadCommand(char* command, char* argv){
     ss << "Failed to open file with name" << argv;
     throw invalid_argument(ss.str());
   }
-  char buff;
-  input >> buff;
-  int count = 0;
-  while(!input.eof()){
-    command[count] = buff;
-    input >> buff;
-    count++;
-  }
-  return count;
+  getline(input, command);
+  return command.size();
 }
 
-void Execute(const char* command, Intel& core, const int& num){
-  cout << "execute of " << num << " command" << endl;
+void Execute(const string& command, Intel& core, const int& num){
+  /*cout << "execute of " << num << " command" << endl;
   for(int i = 0; i < num; i++){
+    cout << command[i] << endl;
+  }*/
+  for(int i = 0; i < num; i++){
+    //cout << i << " is number" << endl;
     switch (command[i]) {
-      case 'A':{
-        int k = i+1;
-        switch (command[k]){//проверять что после него что нибудь обязательно есть
-          case 'H':
+      case 'A':
+        i++;
+        switch (command[i]){//проверять что после него что нибудь обязательно есть
+          case 'W':
             core.push("ax");
-            i++;
             break;
-          case 'I':
+          case 'X':
             core.push("bx");
-            i++;
             break;
-          case 'J':
+          case 'Y':
             core.push("cx");
-            i++;
             break;
-          case 'K':
+          case 'Z':
             core.push("dx");
-            i++;
             break;
           default:
-            int gh;
-            cin >> gh;
-            core.push(gh);
+            core.push(static_cast<int>(command[i]) - 32);
             break;
         }
         break;
-      }
       case 'B':
         i++;
         switch (command[i]) {
-          case 'H':
+          case 'W':
             core.pop("ax");
             break;
-          case 'I':
+          case 'X':
             core.pop("bx");
             break;
-          case 'J':
+          case 'Y':
             core.pop("cx");
             break;
-          case 'K':
+          case 'Z':
             core.pop("dx");
             break;
         }//поставить дефолт на то что ввели не то
@@ -370,22 +391,123 @@ void Execute(const char* command, Intel& core, const int& num){
       case 'G':
         core.kv();
         break;
+      case 'H':
+        cout << "Command is end" << endl;
+        core.Print();
+        exit(0);
+      case 'I':
+        i = static_cast<int>(command[i+1])-33;
+        break;
+      case 'J':
+        core.out();
+        //cout << "out" << endl;
+        break;
+      case 'K':
+        core.pushCall(i-1);
+        i = static_cast<int>(command[i+1])-33;
+        cout << i << " is adress" << endl;
+        break;
+      case 'L':
+        core.in();
+        break;
+      case 'M':
+        i = core.popCall();
+        break;
+      case 'N':
+        i++;
+        switch (command[i]) {
+          case '>':{
+            i++;
+            int gh = static_cast<int>(command[i])-32;
+            cout << gh << " nAAAAAA" << endl;
+            gh = core.Get("dx");
+            /*if(gh < 0){
+              cout << gh << " is register" << endl;
+              exit(-1);
+            }*/
+            cout << gh << " is register" << endl;
+            if(!((core.Get("dx")) > (static_cast<int>(command[i])-32))){
+              //cout << "PIZDEC" << endl;
+              i++;
+            }else{
+              core.pushCall(i-3);
+              //cout << i << " is old adress" << endl;
+              i = static_cast<int>(command[i+1])-33;
+              //cout << i << " is adress" << endl;
+            }
+            break;
+          }
+          case '<':{
+            i++;
+            /*int gh = static_cast<int>(command[i])-32;
+            cout << gh << " nAAAAAA" << endl;
+            gh = core.Get("dx");
+            if(gh < 0){
+              cout << gh << " is register" << endl;
+              exit(-1);
+            }
+            cout << gh << " is register" << endl;*/
+            if(!((core.Get("dx")) < (static_cast<int>(command[i])-32))){
+              //cout << "PIZDEC" << endl;
+              i++;
+            }else{
+              core.pushCall(i-3);
+              //cout << i << " is old adress" << endl;
+              i = static_cast<int>(command[i+1])-33;
+              //cout << i << " is adress" << endl;
+            }
+            break;
+          }
+          default:
+            cout << "Unknown operand. This is " << command[i] << endl;
+            exit(-1);
+        }
+        break;
+      case 'O':
+        i++;
+        switch (command[i]) {
+          case 'W':
+            core.copy("ax");
+            break;
+          case 'X':
+            core.copy("bx");
+            break;
+          case 'Y':
+            core.copy("cx");
+            break;
+          case 'Z':
+            core.copy("dx");
+            break;
+          }
+        break;
       default:
-        cout << "HUINYA number " << i << endl;
-        cout << command[i] << endl;
+        cout << "HUINYA number " << i << ". Command is " << command[i] << endl;
         exit(0);
     }
   }
 }
 
 int main(int argc, char* argv[]){
-  Intel gh;
-  char* command = (char*)calloc(100, sizeof(char));
+  //cout << "HI" << endl;
+  Intel core;
+  string command;
   int size = ReadCommand(command, argv[1]);//поменять на 2, если сделаю через форк
-/*  cout << size << endl;
+  /*cout << size << endl;
   for(int i = 0; i<size; i++){
-    cout << command[i] << endl;
+    cout << command[i];
+  }
+  cout << endl;*/
+/*  try{
+    core.push("kl");
+  }catch(invalid_argument& inv){
+    cout << inv.what() << endl;
+    return 1;
   }*/
-  Execute(command, gh, size);
+  try{
+    Execute(command, core, size);
+  }catch(invalid_argument& inv){
+    cout << inv.what() << endl;
+    return 1;
+  }
   return 0;
 }

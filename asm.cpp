@@ -10,11 +10,40 @@
 #include <sstream>
 using namespace std;
 
-const uint8_t N = 11;
-const string ListofCommand[N] = {"push", "pop", "add", "sub", "div", "mul", "kv", "ax", "bx", "cx", "dx"};
-const char ListofCode[N] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'};
+const uint8_t N = 19;
+const string ListofCommand[N] = {"push", "pop", "add", "sub", "div", "mul", "kv", "end", "jmp",
+"out", "call", "in", "ret", "ifcall", "copy", "ax", "bx", "cx", "dx"};
+const char ListofCode[N] =      {'A',     'B',   'C',   'D',   'E',   'F',   'G',  'H',   'I',
+'J',    'K',   'L',  'M',   'N',    'O',   'W',  'X',  'Y',  'Z'};
 
-int ReadCommand(char* command, char* argv){//переделать на считывание с файла и возврат int'a на количество команд
+int ReadLabel(int* label, string* NameOfLabel, char* argv){
+  assert(argv != NULL);
+  ifstream input(argv);
+  if(!input.is_open()){
+    stringstream ss;
+    ss << "Unknown command: " << argv << endl << "File can't be opened";
+    throw invalid_argument(ss.str());
+  }
+  string buff;
+  input >> buff;
+  int count = 0;
+  int count1 = 0;
+  while(!input.eof()){
+    cout << buff << endl;
+    if(buff[0] == '!'){
+      NameOfLabel[count1] = buff.erase(0,1);
+      label[count1] = count;
+      //cout << count << endl;
+      count1++;
+    }
+    count++;
+    input >> buff;
+  }
+  input.close();
+  return count1;
+}
+
+int ReadCommand(char* command, int* label, string* NameOfLabel, int sizeLabel, char* argv){
   assert(command != NULL);
   assert(argv != NULL);
   ifstream input(argv);
@@ -26,16 +55,67 @@ int ReadCommand(char* command, char* argv){//переделать на счит�
   string buff;
   input >> buff;
   int count = 0;
-  while(!input.eof()){
+  while(!input.eof()){//добавить проверку на неверную комманду
     for(int k = 0; k < N; k++){
       if(buff == ListofCommand[k]){
         command[count] = ListofCode[k];
+        count++;
+        if((k == 8) || (k == 10)){
+          input >> buff;
+          for(int i = 0; i < sizeLabel; i++){
+            if(buff == NameOfLabel[i]){
+              command[count] = static_cast<char>(label[i] + 32);//если label за пределами 256 или даже за 224, то не работает
+              //cout << command[count] << " is command" << endl;
+              //cout << label[i] << " is number" << endl;
+              count++;
+              break;
+            }
+          }
+        }else if(k == 0){
+          input >> buff;
+          if(buff == "ax"){
+            command[count] = 'W';
+          }else if(buff == "bx"){
+            command[count] = 'X';
+          }else if(buff == "cx"){
+            command[count] = 'Y';
+          }else if(buff == "dx"){
+            command[count] = 'Z';
+          }else{
+          command[count] = static_cast<char>(stol(buff) + 32);//????????????????
+          //buff равен "5"; "dx"; "-1"
+          //если кастануть dx то нервам пизда
+          //cout << command[count] << " is number" << endl;
+          }
+          count++;
+        }else if(k == 13){
+          input >> buff;
+          command[count] = buff[0];
+          count++;
+          input >> buff;
+          command[count] = static_cast<char>(stol(buff) + 32);//0+32 выведет stol!!!!!!!
+          //buff равен "0" и после stol получаю 0
+          //вместо 32 поставить 33 и не выводит
+          count++;
+          input >> buff;
+          for(int i = 0; i < sizeLabel; i++){
+            if(buff == NameOfLabel[i]){
+              command[count] = static_cast<char>(label[i] + 32);
+              //cout << command[count] << " is command" << endl;
+              //cout << label[i] << " is number" << endl;
+              count++;
+              break;
+            }
+          }
+        }
         break;
       }
     }
     input >> buff;
-    count++;
   }
+  /*for(int i = 0; i < count1; i++){
+    cout << NameOfLabel[i] << endl;
+  }*/
   input.close();
   return count;
 }
@@ -59,16 +139,24 @@ void CreateAsmFile(char* command, char* argv, int count){
 int main(int argc, char* argv[]){
   if(argc < 3){
     cout << "You have entered insufficient data" << endl;
-    return 1;
+    exit(-1);
   }
-  char charof[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'};
   char* command = (char*)calloc(100, sizeof(char));
+  int* label = (int*)calloc(10, sizeof(int));
+  string* NameOfLabel = (string*)calloc(10,sizeof(string));
   try{
-    int count = ReadCommand(command, argv[1]);
+    int sizeLabel = ReadLabel(label, NameOfLabel, argv[1]);
+    for(int i = 0; i < sizeLabel; i++){
+      cout << NameOfLabel[i] << " == " << label[i] << endl;
+    }
+    int count = ReadCommand(command, label, NameOfLabel, sizeLabel, argv[1]);
+    /*for(int i = 0; i < count; i++){
+      cout << command[i] << endl;
+    }*/
     CreateAsmFile(command, argv[2], count);
   }catch(invalid_argument& inv){
     cout << inv.what() << endl;
-    return 2;
+    exit(-1);
   }
   return 0;
 }
