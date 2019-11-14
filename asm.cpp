@@ -10,11 +10,13 @@
 #include <sstream>
 using namespace std;
 
-const uint8_t N = 19;
-const string ListofCommand[N] = {"push", "pop", "add", "sub", "div", "mul", "kv", "end", "jmp",
-"out", "call", "in", "ret", "ifcall", "copy", "ax", "bx", "cx", "dx"};
-const char ListofCode[N] =      {'A',     'B',   'C',   'D',   'E',   'F',   'G',  'H',   'I',
-'J',    'K',   'L',  'M',   'N',    'O',   'W',  'X',  'Y',  'Z'};
+//переебать asm на вывод инта
+
+const uint8_t N = 22;
+const string ListofCommand[N] = {"push",   "pop", "add", "sub", "div", "mul", "kv", "end", "jmp",
+"out", "call", "in", "ret", "jn", "copy", "jb", "jm", "je", "ax", "bx", "cx", "dx"};
+const char ListofCode[N] =      {  'A',     'B',   'C',   'D',   'E',   'F',   'G',  'H',   'I',
+'J',    'K',   'L',   'M',  'N',    'O',   'P',  'R',  'S', 'W',  'X',  'Y',  'Z'};
 
 int ReadLabel(int* label, string* NameOfLabel, char* argv){
   assert(argv != NULL);
@@ -29,7 +31,7 @@ int ReadLabel(int* label, string* NameOfLabel, char* argv){
   int count = 0;
   int count1 = 0;
   while(!input.eof()){
-    cout << buff << endl;
+    //cout << buff << endl;
     if(buff[0] == '!'){
       NameOfLabel[count1] = buff.erase(0,1);
       label[count1] = count;
@@ -71,6 +73,20 @@ int ReadCommand(char* command, int* label, string* NameOfLabel, int sizeLabel, c
               break;
             }
           }
+        }else if(k == 13 || k == 15 || k == 16 || k == 17){
+          input >> buff;
+          command[count] = (char)(stol(buff)+32);
+          count++;
+          input >> buff;
+          for(int i = 0; i < sizeLabel; i++){
+            if(buff == NameOfLabel[i]){
+              command[count] = static_cast<char>(label[i] + 32);//если label за пределами 256 или даже за 224, то не работает
+              //cout << command[count] << " is command" << endl;
+              //cout << label[i] << " is number" << endl;
+              count++;
+              break;
+            }
+          }
         }else if(k == 0){
           input >> buff;
           if(buff == "ax"){
@@ -81,13 +97,18 @@ int ReadCommand(char* command, int* label, string* NameOfLabel, int sizeLabel, c
             command[count] = 'Y';
           }else if(buff == "dx"){
             command[count] = 'Z';
-          }else{
-          command[count] = static_cast<char>(stol(buff) + 32);//????????????????
+          }else if(buff[0] == '[' && buff[buff.size()-1] == ']'){
+            command[count-1] = 'a';
+            buff.erase(0,1);
+            buff.erase(buff.size()-1, 1);//????? передать 4 бита
+            command[count] = (char)(stol(buff) + 32);
           //buff равен "5"; "dx"; "-1"
           //если кастануть dx то нервам пизда
           //cout << command[count] << " is number" << endl;
+          }else{
+            command[count] = static_cast<char>(stol(buff) + 32);
           }
-          count++;
+            count++;
         }else if(k == 13){
           input >> buff;
           command[count] = buff[0];
@@ -107,6 +128,23 @@ int ReadCommand(char* command, int* label, string* NameOfLabel, int sizeLabel, c
               break;
             }
           }
+        }else if(k == 1){
+          input >> buff;
+          if(buff == "ax"){
+            command[count] = 'W';
+          }else if(buff == "bx"){
+            command[count] = 'X';
+          }else if(buff == "cx"){
+            command[count] = 'Y';
+          }else if(buff == "dx"){
+            command[count] = 'Z';
+          }else if(buff[0] == '[' && buff[buff.size()-1] == ']'){
+            command[count-1] = 'b';
+            buff.erase(0,1);
+            buff.erase(buff.size() - 1, 1);
+            command[count] = static_cast<char>(stol(buff) + 32);
+          }
+          count++;
         }
         break;
       }
@@ -146,9 +184,9 @@ int main(int argc, char* argv[]){
   string* NameOfLabel = (string*)calloc(10,sizeof(string));
   try{
     int sizeLabel = ReadLabel(label, NameOfLabel, argv[1]);
-    for(int i = 0; i < sizeLabel; i++){
+    /*for(int i = 0; i < sizeLabel; i++){
       cout << NameOfLabel[i] << " == " << label[i] << endl;
-    }
+    }*/
     int count = ReadCommand(command, label, NameOfLabel, sizeLabel, argv[1]);
     /*for(int i = 0; i < count; i++){
       cout << command[i] << endl;

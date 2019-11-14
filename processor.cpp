@@ -2,8 +2,13 @@
 //реализовать fork
 //добавить out in в asn +
 //написать проверку проверки на дохуя проверок +
-//канарейки на процессор
-//ifcall
+//канарейки на процессор+
+//ifcall как правильно писать условный переход, потеряны записи+
+//бинарные файлы&
+//jb >
+// jn !=
+//jm <
+// je ==
 #include <iostream>
 #include <fstream>
 #include <cstdint>
@@ -14,71 +19,132 @@
 #include <exception>
 #include <stdexcept>
 #include <sstream>
+#include <cerrno>
 using namespace std;
 
-#define POISON -1;
-#define CANARY 86;
-//in & out & add, arifm, push & pop
-//jmp
-//out последнее запушенное число
-//programm counter, указывает на команды
-//metka
-//переменная с номером текущей команды
-//массив с метками
+const int POISON = -2'147'483'648;
+const int CANARY = 86;
+
 //ja stop
 //jae above below equal not
-//массив привяок
-// двойная компиляция для прыжков вперед
-//еще один стек для call и ret это еще одни jump
 typedef int type;
+
+#define MEOW(x, y) x * y
+
+class RAM{
+public:
+  RAM(){
+    array = (type*)calloc(10, sizeof(type));
+    size = 10;
+    for(int i = 0; i < size; i++){
+      array[i] = POISON;
+    }
+  };
+  RAM(int gh){
+    array = (type*)calloc(gh, sizeof(type));
+    size = gh;
+    for(int i = 0; i < size; i++){
+      array[i] = POISON;
+    }
+  }
+
+  ~RAM(){
+    Print();
+    free(array);
+  }
+
+  void Print() const{
+    cout << endl << "RAM" << endl;
+    for(int i = 0; i < size; i++){
+      cout << array[i] << " is cell " << i << endl;
+    }
+  }
+
+  void Set(type gh, const int& cell){
+    array[cell] = gh;
+  }
+
+  type Get(const int& cell) const{
+    return array[cell];
+  }
+private:
+  type* array;
+  size_t size;
+};
+
+/**
+parameters
+array
+size
+hash
+capacity
+*/
+
+void PrintErrors(){
+  if(errno != 0){
+    perror("ERROR IS ");
+    assert(errno == 0);
+  }
+}
 
 class Stack{
 public:
 
   Stack(){
+    errno = 0;
     size = 0;
     capacity = 1;
-    array = (type*)calloc(capacity+2, sizeof(type));
+    array = (type*)calloc(capacity+2, sizeof(type));//errno
+    assert(array);
     array[0] = 86;
     array[capacity+1] = 86;
     hash = 0;
+    PrintErrors();
     //cout << &size << " " << &capacity << " " << &hash << endl;
   };
-  Stack(const int& gh){
+  Stack(const int gh){
     assert(gh > 0);
+    errno = 0;
     capacity = gh;
     size = 0;
     array = (type*)calloc(capacity+2, sizeof(type));
+    assert(array);
     array[0] = CANARY;
     array[capacity+1] = CANARY;
     hash = 0;
-    for(int i = 1; i < capacity; i++){
+    for(int i = 1; i < capacity+1; i++){
       array[i] = POISON;
     }
+    PrintErrors();
   };
 
-  ~Stack(){
+  ~Stack(){// destruction of Stack, write all information of it and free all memory
     Dump();
     free(array);
   }
 
-  bool empty() const{
+  bool empty() const{//check stack for function pop
     return !(size == 0);
   }
 
-  void canary() const{
+  void canary() const{//give check of security
     if(!(array[0] == array[capacity+1])){
         cout << "Canaries are't equal" << endl;
         Dump();
         exit(0);
     }
-  } //переписать с DUMP
+  }
 
   void checkhash(){
     if (hash != Gethash()){
       Dump();
-      exit(0);
+      exit(-1);
     }
+  }
+
+  void CheckStack(){
+    canary();
+    checkhash();
   }
 
   type out() const{
@@ -88,6 +154,11 @@ public:
   void Dump() const{
     cout << endl;
     cout << "STACK:" << endl;
+    if(errno != 0){
+      perror("With ERROR ");
+    }else{
+      cout << "Without ERROR" << endl;
+    }
     cout << "Canaries are " << array[0] << " and " << array[capacity+1] << " .";
     if(array[0] == array[capacity+1]){
       cout << "They're equal" << endl;
@@ -95,7 +166,20 @@ public:
       cout << "They're not equal" << endl;
     }
     cout << capacity << " is capacity of your STACK" << endl;
+    if(capacity < size){
+      cout << "MEMORY OF STACK WAS BROKEN, size less than capacity" << endl;
+    }else if(capacity < 0){
+      cout << "MEMORY OF STACK WAS BROKEN, capacity less 0" << endl;
+    }
     cout << size << " is size of your STACK" << endl;
+    if(size < 0){
+      cout << "STACK WAS BROKEN ON SIZE" << endl;
+    }
+    if(hash != Gethash()){
+      cout << "HASH WAS BROKEN" << endl;
+    }else{
+      cout << "HASH IS RIGHT" << endl;
+    }
     cout << hash << " is hash of your STACK" << endl;
     for(int i = 0; i < size; i++){
       cout << array[i+1] << " is String " << i << endl;
@@ -109,8 +193,7 @@ public:
 
   void push(const type& data1){
     assert(isfinite(data1));
-    canary();
-    checkhash();
+    CheckStack();
     if(size == capacity){
       capacity = capacity*2;
       array = (type*)realloc(array, capacity * sizeof(type));
@@ -125,8 +208,7 @@ public:
   }
 
   type pop(){
-    canary();
-    checkhash();
+    CheckStack();
     assert(empty());
     size--;
     hash = Gethash();
@@ -137,7 +219,7 @@ public:
     int64_t gh = 0;
     int64_t p = 3;
     for(int i = 1; i<size+1; i++){
-      gh = gh ^ static_cast<int64_t>(array[i])*p;
+      gh = gh ^ (int64_t)array[i]*p;
       p = p*3;
     }
     return gh;
@@ -152,6 +234,8 @@ private:
   size_t capacity;
   int64_t hash;
 };
+
+
 
 class Register{
 public:
@@ -216,35 +300,66 @@ private:
 
 class Intel{
 public:
-  Intel(){}
+  Intel(){
+    canary1 = CANARY;
+    canary2 = CANARY;
+    work = new Stack;
+    call = new Stack;
+    first = new Register;
+    memory = new RAM;
+  }
 
   ~Intel(){
     cout << endl << "INTEL:" << endl;
+    cout << "CANARY ARE " << canary1 << " and " << canary2;
+    if(canary1 == canary2){
+      cout << ". THEY ARE EQUAL" << endl;
+    }else{
+      cout << ". THEY ARE NOT EQUAL" << endl;
+    }
+    delete work;
+    delete call;
+    delete first;
+    delete memory;
   }
 
   void push(const string& gh){
+    Check();
     try{
-      work.push(first.Get(gh));
+      work->push(first->Get(gh));
     }catch(invalid_argument& inv){
         throw inv;
       }
   }
 
   void push(const type& gh){
-    work.push(gh);
+    Check();
+    work->push(gh);
+  }
+
+  void pushRAM(const int& gh){
+    Check();
+    work->push(memory->Get(gh));
   }
 
   void pop(const string& gh){
+    Check();
     try{
-      first.Set(gh, work.pop());
+      first->Set(gh, work->pop());
     }catch(invalid_argument& inv){
       throw inv;
     }
   }
 
+  void popRAM(const int gh){
+    Check();
+    memory->Set(work->pop(), gh);
+  }
+
   type Get(const string& gh) const{
+    Check();
     try{
-      type num = first.Get(gh);
+      type num = first->Get(gh);
       return num;
     }catch(invalid_argument& inv){
       throw inv;
@@ -252,70 +367,98 @@ public:
   }
 
   void mul(){
+    Check();
     pop("ax");
     pop("bx");
     push(Get("ax")*Get("bx"));
   }
 
   void add(){
+    Check();
     pop("ax");
     pop("bx");
     push(Get("ax")+Get("bx"));
   }
 
   void sub(){
+    Check();
     pop("ax");
     pop("bx");
     push(Get("ax")-Get("bx"));
   }
 
   void div(){
+    Check();
     pop("ax");
     pop("bx");
     push(Get("ax")/Get("bx"));
   }
 
   void kv(){
+    Check();
     pop("ax");
     push(sqrt(Get("ax")));
   }
 
   void in(){
+    Check();
     type k;
     cin >> k;
     push(k);
   }
 
   void out(){
-    cout << "Result is " << work.out() << endl;
+    Check();
+    cout << "Result is " << work->out() << endl;
   }
 
   void Gethash(){
-    work.Gethash();
+    Check();
+    work->Gethash();
   }
 
   void Print() const{
     cout << endl << "INTEL:" << endl;
-    first.PrintReg();
-    work.Dump();
-    call.Dump();
+    cout << "CANARY ARE " << canary1 << " and " << canary2;
+    if(canary1 == canary2){
+      cout << ". THEY ARE EQUAL" << endl;
+    }else{
+      cout << ". THEY ARE NOT EQUAL" << endl;
+    }
+    first->PrintReg();
+    work->Dump();
+    call->Dump();
+    memory->Print();
   }
 
   void pushCall(int gh){
-    call.push(gh);
+    Check();
+    call->push(gh);
   }
 
   type popCall(){
-    return call.pop();
+    Check();
+    return call->pop();
   }
 
   void copy(const string& gh){
-    first.Set(gh, work.out());
+    Check();
+    first->Set(gh, work->out());
+  }
+
+  void Check() const{
+    if(canary1 != canary2){
+        cout << "Canaries of INTEL are't equal" << endl;
+        exit(-1);
+    }
   }
 private:
-  Stack work;
-  Stack call;
-  Register first;
+  int canary1;
+  Stack* work;
+  Stack* call;
+  Register* first;
+  RAM* memory;
+  int canary2;
 };
 
 int ReadCommand(string& command, char* argv){
@@ -338,6 +481,7 @@ void Execute(const string& command, Intel& core, const int& num){
   }*/
   //cout << command[18] << endl;
   for(int i = 0; i < num; i++){
+    //cout << command[i] << " is command " << i << endl;
     switch (command[i]) {
       case 'A':
         i++;
@@ -359,8 +503,13 @@ void Execute(const string& command, Intel& core, const int& num){
             break;
         }
         break;
+      case 'a':
+        i++;
+        core.pushRAM(static_cast<int>(command[i]) - 32);
+        break;
       case 'B':
         i++;
+        cout << "here" << endl;
         switch (command[i]) {
           case 'W':
             core.pop("ax");
@@ -374,7 +523,15 @@ void Execute(const string& command, Intel& core, const int& num){
           case 'Z':
             core.pop("dx");
             break;
+          default:
+            cout << "wtf" << endl;
+            exit(-1);
+            break;
         }//поставить дефолт на то что ввели не то
+        break;
+      case 'b':
+        i++;
+        core.popRAM(static_cast<int>(command[i]) - 32);
         break;
       case 'C':
         core.add();
@@ -415,52 +572,14 @@ void Execute(const string& command, Intel& core, const int& num){
         break;
       case 'N':
         i++;
-        switch (command[i]) {
-          case '>':{
-            i++;
-            /*int gh = static_cast<int>(command[i])-32;
-            cout << gh << " nAAAAAA" << endl;
-            gh = core.Get("dx");
-            if(gh < 0){
-              cout << gh << " is register" << endl;
-              exit(-1);
-            }
-            cout << gh << " is register" << endl;*/
-            if(core.Get("dx") <= (static_cast<int>(command[i])-32)){
-              //cout << "PIZDEC" << endl;
-              i++;
-            }else{
-              core.pushCall(i-3);
-              //cout << i << " is old adress" << endl;
-              i = static_cast<int>(command[i+1])-33;
-              //cout << i << " is adress" << endl;
-            }
-            break;
-          }
-          case '<':{
-            i++;
-            /*int gh = static_cast<int>(command[i])-32;
-            cout << gh << " nAAAAAA" << endl;
-            gh = core.Get("dx");
-            if(gh < 0){
-              cout << gh << " is register" << endl;
-              exit(-1);
-            }
-            cout << gh << " is register" << endl;*/
-            if(core.Get("dx") >= (static_cast<int>(command[i])-32)){
-              //cout << "PIZDEC" << endl;
-              i++;
-            }else{
-              core.pushCall(i-3);
-              //cout << i << " is old adress" << endl;
-              i = static_cast<int>(command[i+1])-33;
-              //cout << i << " is adress" << endl;
-            }
-            break;
-          }
-          default:
-            cout << "Unknown operand. This is " << command[i] << endl;
-            exit(-1);
+        if(core.Get("dx") != (static_cast<int>(command[i])-32)){
+          core.pushCall(i-2);
+          //cout << i << " is old adress" << endl;
+          i = static_cast<int>(command[i+1])-33;
+          //cout << i << " is adress" << endl;
+        }else{
+          //cout << "PIZDEC" << endl;
+          i++;
         }
         break;
       case 'O':
@@ -480,6 +599,42 @@ void Execute(const string& command, Intel& core, const int& num){
             break;
           }
         break;
+      case 'P':
+        i++;
+        if(core.Get("dx") > (static_cast<int>(command[i])-32)){
+          core.pushCall(i-2);
+          //cout << i << " is old adress" << endl;
+          i = static_cast<int>(command[i+1])-33;
+          //cout << i << " is adress" << endl;
+        }else{
+          //cout << "PIZDEC" << endl;
+          i++;
+        }
+        break;
+      case 'R':
+        i++;
+        if(core.Get("dx") < (static_cast<int>(command[i])-32)){
+          core.pushCall(i-2);
+          //cout << i << " is old adress" << endl;
+          i = static_cast<int>(command[i+1])-33;
+          //cout << i << " is adress" << endl;
+        }else{
+          //cout << "PIZDEC" << endl;
+          i++;
+        }
+        break;
+      case 'S':
+        i++;
+        if(core.Get("dx") == (static_cast<int>(command[i])-32)){
+          core.pushCall(i-2);
+          //cout << i << " is old adress" << endl;
+          i = static_cast<int>(command[i+1])-33;
+          //cout << i << " is adress" << endl;
+        }else{
+          //cout << "PIZDEC" << endl;
+          i++;
+        }
+        break;
       default:
         cout << "HUINYA number " << i << ". Command is " << command[i] << endl;
         exit(0);
@@ -492,23 +647,23 @@ int main(int argc, char* argv[]){
   //cout << "HI" << endl;
   Intel core;
   string command;
-  int size = ReadCommand(command, argv[1]);//поменять на 2, если сделаю через форк
+  int size = ReadCommand(command, argv[1]);//поменять на 2, если сделаю через форк*/
   /*cout << size << endl;
   for(int i = 0; i<size; i++){
     cout << command[i];
   }
   cout << endl;*/
-/*  try{
-    core.push("kl");
-  }catch(invalid_argument& inv){
-    cout << inv.what() << endl;
-    return 1;
-  }*/
+
   try{
     Execute(command, core, size);
   }catch(invalid_argument& inv){
     cout << inv.what() << endl;
     return 1;
   }
+  /*errno = 0;
+  Intel work;
+  work.push(5);
+  work.popRAM(7);
+  work.pushRAM(7);*/
   return 0;
 }
