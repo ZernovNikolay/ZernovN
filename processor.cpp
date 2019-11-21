@@ -20,6 +20,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <cerrno>
+#include <cstdio>
 using namespace std;
 
 const int POISON = -2'147'483'648;
@@ -29,7 +30,7 @@ const int CANARY = 86;
 //jae above below equal not
 typedef int type;
 
-#define MEOW(x, y) x * y
+//#define MEOW(x, y) x * y
 
 class RAM{
 public:
@@ -54,7 +55,7 @@ public:
   }
 
   void Print() const{
-    cout << endl << "RAM" << endl;
+    cout << endl << "RAM Size " << size << endl;
     for(int i = 0; i < size; i++){
       cout << array[i] << " is cell " << i << endl;
     }
@@ -96,9 +97,12 @@ public:
     capacity = 1;
     array = (type*)calloc(capacity+2, sizeof(type));//errno
     assert(array);
-    array[0] = 86;
-    array[capacity+1] = 86;
+    array[0] = CANARY;
+    array[capacity+1] = CANARY;
+    array[1] = POISON;
     hash = 0;
+    canary1 = CANARY;
+    canary2 = CANARY;
     PrintErrors();
     //cout << &size << " " << &capacity << " " << &hash << endl;
   };
@@ -116,6 +120,8 @@ public:
       array[i] = POISON;
     }
     PrintErrors();
+    canary1 = CANARY;
+    canary2 = CANARY;
   };
 
   ~Stack(){// destruction of Stack, write all information of it and free all memory
@@ -127,24 +133,45 @@ public:
     return !(size == 0);
   }
 
-  void canary() const{//give check of security
+  int CheckCanary() const{//give check of security
     if(!(array[0] == array[capacity+1])){
-        cout << "Canaries are't equal" << endl;
+        cout << "Canaries of Array are't equal" << endl;
         Dump();
-        exit(0);
+        return 1;
+    }else{
+      return 0;
     }
   }
 
-  void checkhash(){
+  int checkhash() const{
     if (hash != Gethash()){
       Dump();
-      exit(-1);
+      return 1;
+    }else{
+      return 0;
     }
   }
 
-  void CheckStack(){
-    canary();
-    checkhash();
+  int CheckCanaryStruct() const{
+    if(canary1 != canary2){
+      cout << "Canary of Stack are't equal" << endl;
+      Dump();
+      return 1;
+    }else{
+      return 0;
+    }
+  }
+
+  void CheckStack() const{
+    if(CheckCanaryStruct()){
+      exit(-1);
+    }
+    if(CheckCanary()){
+      exit(-1);
+    }
+    if(checkhash()){
+      exit(-1);
+    }
   }
 
   type out() const{
@@ -159,11 +186,21 @@ public:
     }else{
       cout << "Without ERROR" << endl;
     }
-    cout << "Canaries are " << array[0] << " and " << array[capacity+1] << " .";
-    if(array[0] == array[capacity+1]){
+    cout << "Canaries of Stack are " << canary1 << " and " << canary2 << " .";
+    if(canary1 == canary2){
       cout << "They're equal" << endl;
     }else{
       cout << "They're not equal" << endl;
+    }
+    if(array == NULL){
+      cout << "Canaries of Array was broken and don't exist" << endl;
+    }else{
+      cout << "Canaries of Array are " << array[0] << " and " << array[capacity+1] << " .";
+      if(array[0] == array[capacity+1]){
+        cout << "They're equal" << endl;
+      }else{
+        cout << "They're not equal" << endl;
+      }
     }
     cout << capacity << " is capacity of your STACK" << endl;
     if(capacity < size){
@@ -181,12 +218,16 @@ public:
       cout << "HASH IS RIGHT" << endl;
     }
     cout << hash << " is hash of your STACK" << endl;
-    for(int i = 0; i < size; i++){
-      cout << array[i+1] << " is String " << i << endl;
-    }
-    cout << "!!!!!!!!!! You're here !!!!!!!!!" << endl;
-    for(int i = size; i < capacity; i++){
-      cout << array[i+1] << " is String " << i << " number of POISON" << endl;
+    if(array != NULL){
+      for(int i = 0; i < size; i++){
+        cout << array[i+1] << " is String " << i << endl;
+      }
+      cout << "!!!!!!!!!! You're here !!!!!!!!!" << endl;
+      for(int i = size; i < capacity; i++){
+        cout << array[i+1] << " is String " << i << " number of POISON" << endl;
+      }
+    }else{
+      cout << "Array was broken and don't exist" << endl;
     }
     cout << endl;
   }
@@ -196,7 +237,8 @@ public:
     CheckStack();
     if(size == capacity){
       capacity = capacity*2;
-      array = (type*)realloc(array, capacity * sizeof(type));
+      array = (type*)realloc(array, capacity * sizeof(type)+2);
+      assert(array);
       array[capacity+1] = CANARY;
       for(int i = size+2; i < capacity+1; i++){
         array[i] = POISON;
@@ -212,7 +254,13 @@ public:
     assert(empty());
     size--;
     hash = Gethash();
-    return array[size+1];
+    type GetOut = array[size+1];
+    if(size < capacity/2){
+      capacity = capacity/2;
+      array = (type*)realloc(array, capacity * sizeof(type)+2);
+      array[capacity+1] = CANARY;
+    }
+    return GetOut;
   }
 
   int64_t Gethash() const{
@@ -229,13 +277,13 @@ public:
     return capacity;
   }
 private:
+  int canary1;
   type* array;
   size_t size;
   size_t capacity;
   int64_t hash;
+  int canary2;
 };
-
-
 
 class Register{
 public:
@@ -366,6 +414,10 @@ public:
     }
   }
 
+  type out() const{
+    return work->out();
+  }
+
   void mul(){
     Check();
     pop("ax");
@@ -405,11 +457,6 @@ public:
     type k;
     cin >> k;
     push(k);
-  }
-
-  void out(){
-    Check();
-    cout << "Result is " << work->out() << endl;
   }
 
   void Gethash(){
@@ -461,20 +508,42 @@ private:
   int canary2;
 };
 
-int ReadCommand(string& command, char* argv){
-  assert(&command != NULL);
+char* ReadCommand(char* argv, int& fileLength){
+  //assert(&command != NULL);
   assert(argv != NULL);
-  ifstream input(argv);
-  if(!input.is_open()){
-    stringstream ss;
-    ss << "Failed to open file with name" << argv;
-    throw invalid_argument(ss.str());
+  FILE* ptrFile = fopen(argv, "rb");
+  if (ptrFile == NULL)
+  {
+    fputs("Ошибка файла", stderr);
+    exit(1);
   }
-  getline(input, command);
-  return command.size();
+
+  fseek (ptrFile, 0L, SEEK_END);//fstat
+  fileLength = ftell (ptrFile) - 1;
+  fseek (ptrFile, 0L, SEEK_SET);
+
+  char* command = (char*) calloc (fileLength+2, sizeof (char));
+  if (command == NULL)
+  {
+    fputs("Ошибка памяти", stderr);
+    exit(2);
+  }
+
+  fread (command, fileLength, 1, ptrFile);
+  /*cout << fileLength << endl << endl;
+  cout << result << endl;
+  cout << command[result+1] << endl;
+  if (result != fileLength)
+  {
+    fputs("Ошибка чтения", stderr);
+    exit (3);
+  }*/
+
+  fclose(ptrFile);
+  return (command);
 }
 
-void Execute(const string& command, Intel& core, const int& num){
+void Execute(char* command, Intel& core, const int& num){//not const by free
   /*cout << "execute of " << num << " command" << endl;
   for(int i = 0; i < num; i++){
     cout << command[i] << endl;
@@ -551,13 +620,13 @@ void Execute(const string& command, Intel& core, const int& num){
       case 'H':
         cout << "Command is end" << endl;
         core.Print();
+        free(command);
         exit(0);
       case 'I':
         i = static_cast<int>(command[i+1])-33;
         break;
       case 'J':
-        core.out();
-        //cout << "out" << endl;
+        cout << "Result is " << core.out() << endl;
         break;
       case 'K':
         core.pushCall(i-1);
@@ -573,9 +642,12 @@ void Execute(const string& command, Intel& core, const int& num){
       case 'N':
         i++;
         if(core.Get("dx") != (static_cast<int>(command[i])-32)){
-          core.pushCall(i-2);
+          int newNumber = static_cast<int>(command[i+1])-33;
+          if(newNumber > (i-2)){
+            core.pushCall(i-2);
+          }
           //cout << i << " is old adress" << endl;
-          i = static_cast<int>(command[i+1])-33;
+          i = newNumber;
           //cout << i << " is adress" << endl;
         }else{
           //cout << "PIZDEC" << endl;
@@ -602,9 +674,12 @@ void Execute(const string& command, Intel& core, const int& num){
       case 'P':
         i++;
         if(core.Get("dx") > (static_cast<int>(command[i])-32)){
-          core.pushCall(i-2);
+          int newNumber = static_cast<int>(command[i+1])-33;
+          if(newNumber > (i-2)){
+            core.pushCall(i-2);
+          }
           //cout << i << " is old adress" << endl;
-          i = static_cast<int>(command[i+1])-33;
+          i = newNumber;
           //cout << i << " is adress" << endl;
         }else{
           //cout << "PIZDEC" << endl;
@@ -614,9 +689,12 @@ void Execute(const string& command, Intel& core, const int& num){
       case 'R':
         i++;
         if(core.Get("dx") < (static_cast<int>(command[i])-32)){
-          core.pushCall(i-2);
+          int newNumber = static_cast<int>(command[i+1])-33;
+          if(newNumber > (i-2)){
+            core.pushCall(i-2);
+          }
           //cout << i << " is old adress" << endl;
-          i = static_cast<int>(command[i+1])-33;
+          i = newNumber;
           //cout << i << " is adress" << endl;
         }else{
           //cout << "PIZDEC" << endl;
@@ -626,9 +704,12 @@ void Execute(const string& command, Intel& core, const int& num){
       case 'S':
         i++;
         if(core.Get("dx") == (static_cast<int>(command[i])-32)){
-          core.pushCall(i-2);
+          int newNumber = static_cast<int>(command[i+1])-33;
+          if(newNumber > (i-2)){
+            core.pushCall(i-2);
+          }
           //cout << i << " is old adress" << endl;
-          i = static_cast<int>(command[i+1])-33;
+          i = newNumber;
           //cout << i << " is adress" << endl;
         }else{
           //cout << "PIZDEC" << endl;
@@ -637,33 +718,32 @@ void Execute(const string& command, Intel& core, const int& num){
         break;
       default:
         cout << "HUINYA number " << i << ". Command is " << command[i] << endl;
+        free(command);
         exit(0);
     }
   }
-  cout << command[18] << endl;
+  //cout << command[18] << endl;
 }
 
 int main(int argc, char* argv[]){
   //cout << "HI" << endl;
-  Intel core;
-  string command;
-  int size = ReadCommand(command, argv[1]);//поменять на 2, если сделаю через форк*/
+  static Intel core;
+  char* command = NULL;
+  int size = 0;
+  command = ReadCommand(argv[1], size);//поменять на 2, если сделаю через форк*/
   /*cout << size << endl;
-  for(int i = 0; i<size; i++){
+  for(int i = 0; i < size-1; i++){
     cout << command[i];
   }
   cout << endl;*/
 
   try{
     Execute(command, core, size);
+    free(command);
   }catch(invalid_argument& inv){
     cout << inv.what() << endl;
+    free(command);
     return 1;
   }
-  /*errno = 0;
-  Intel work;
-  work.push(5);
-  work.popRAM(7);
-  work.pushRAM(7);*/
   return 0;
 }

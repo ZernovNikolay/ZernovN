@@ -188,9 +188,9 @@ int main(int argc, char* argv[]){
       cout << NameOfLabel[i] << " == " << label[i] << endl;
     }*/
     int count = ReadCommand(command, label, NameOfLabel, sizeLabel, argv[1]);
-    /*for(int i = 0; i < count; i++){
+    for(int i = 0; i < count; i++){
       cout << command[i] << endl;
-    }*/
+    }
     CreateAsmFile(command, argv[2], count);
   }catch(invalid_argument& inv){
     cout << inv.what() << endl;
