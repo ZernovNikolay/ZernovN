@@ -28,7 +28,7 @@ int main ()
     char* originaltext = NULL;
     char** adress = NULL;
     char** copyText = NULL;
-    FILE* input = fopen ("Input.txt", "r");
+    FILE* input = fopen ("Input.txt", "r");//b
     int numberOfString = 0;
     FILE* output = fopen ("output.txt", "w");
 
@@ -71,7 +71,7 @@ int LengthOfFile (FILE* input)
     {
     assert (input != NULL);
 
-    fseek (input, 0L, SEEK_END);
+    fseek (input, 0L, SEEK_END);//fstat
     int fileLength = ftell (input);
     fseek (input, 0L, SEEK_SET);
 
@@ -96,15 +96,16 @@ char** FindEndOfString (char* originaltext, int fileLength, int* numberOfString)
     assert (originaltext != NULL);
     assert (fileLength >= 0);
     assert (numberOfString != NULL);
+
     originaltext[fileLength] = '\0';
     int counter = 0;
     for (int i = 0; i < fileLength; i++)
-        {
-        if (originaltext[i] == '\n'  && originaltext[i+1] != '\n')//was \0
-            {
-            counter++;
-            }
-        }
+    {
+      if (originaltext[i] == '\n'  && originaltext[i+1] != '\n')//was \0
+      {
+        counter++;
+      }
+    }
 
     char** adress = (char**) calloc (counter+2, sizeof (char*));
     *numberOfString = counter;
